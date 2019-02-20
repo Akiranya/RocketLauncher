@@ -1,15 +1,18 @@
 name: RocketLauncher
 main: co.mcsky.rocketlauncher.RocketLauncher
-version: 1.0
+version: 1.5
 author: Nailm
 api-version: 1.13
 commands:
   rocketlauncher:
     description: main entry to RocketLauncher
-    usage: /<command> <add|remove|list> [pointname] [from|to]
+    usage: |-
+      =-=-=-=-=-=-= RocketLauncher =-=-=-=-=-=-=
+      /<command> add [pointname] [from|to]
+      /<command> remove [pointname]
+      /<command> list
+      /<command> tp [pointname]
+      /<command> toggle [period]
+      /<command> toggle
     aliases: [rocket]
     permission: rocketlauncher
-  test:
-    description: test
-    usage: /<command>
-    permission: rocketlauncher.test

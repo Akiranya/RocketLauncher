@@ -1,42 +1,51 @@
 package co.mcsky.rocketlauncher;
 
-import org.bukkit.command.Command;
-import org.bukkit.command.CommandExecutor;
-import org.bukkit.command.CommandSender;
-import org.bukkit.configuration.file.FileConfiguration;
-import org.bukkit.entity.Player;
+import org.bukkit.Bukkit;
+import org.bukkit.Location;
 import org.bukkit.plugin.java.JavaPlugin;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.logging.Level;
 
 public class RocketLauncher extends JavaPlugin {
 
-    private FileConfiguration config = getConfig();
+    private HashMap<String, ConvenienceVector> vectors;
 
     @Override
     public void onDisable() {
-        config.options().copyDefaults(true);
         saveConfig();
     }
 
     @Override
     public void onEnable() {
-        // Get Vectors from config
-        /*Map<String, Object> vectors = this
-                .getConfig()
-                .getConfigurationSection("jump-points")
-                .getValues(false);*/
 
-        this.getCommand("rocketlauncher")
-                .setExecutor(new VectorManagerCommand(new VectorManager(config), this));
+        VectorManagerCommand executor = new VectorManagerCommand(new VectorManager(this), this);
+        this.getCommand("rocketlauncher").setExecutor(executor);
 
-        this.getCommand("test")
-                .setExecutor(new CommandExecutor() {
-                    @Override
-                    public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
-                        Player p = (Player) sender;
-                        String s = p.getLocation().getDirection().toLocation(p.getWorld()).toString();
-                        p.sendMessage(s);
-                        return false;
-                    }
-                });
+        loadVectors();
+    }
+
+    void loadVectors() {
+        vectors = new HashMap<>();
+
+        // Loads vectors and meanwhile checks if complete
+        for (String key : this.getConfig().getKeys(false)) {
+            Location locFrom = (Location) this.getConfig().get(key + ".from");
+            Location locTo = (Location) this.getConfig().get(key + ".to");
+            int magnitude = this.getConfig().getInt(key + ".magnitude");
+            if (locFrom == null || locTo == null || magnitude == 0) {
+                Bukkit.getLogger().log(
+                        Level.WARNING,
+                        "Loading data failed due to incomplete location, skipping '" + key + "'."
+                );
+            } else {
+                vectors.put(key, new ConvenienceVector(locFrom, locTo, magnitude));
+            }
+        }
+    }
+
+    Map<String, ConvenienceVector> getVectorX() {
+        return vectors;
     }
 }

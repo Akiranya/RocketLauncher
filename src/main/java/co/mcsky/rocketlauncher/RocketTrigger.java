@@ -1,84 +1,77 @@
 package co.mcsky.rocketlauncher;
 
 import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
 import org.bukkit.Location;
-import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.util.Vector;
 
-import java.util.HashMap;
 import java.util.Map;
-import java.util.Set;
+import java.util.logging.Level;
 
-public class RocketTrigger extends BukkitRunnable {
+class RocketTrigger extends BukkitRunnable {
     private final RocketLauncher plugin;
-    private Map<Location, MagLocation> locPairs;
+    private final Map<String, ConvenienceVector> vectors;
+    private final Player player;
 
-    public RocketTrigger(RocketLauncher plugin) {
+    RocketTrigger(RocketLauncher plugin, Player player) {
         this.plugin = plugin;
+        this.player = player;
 
-        // Gets the config object
-        FileConfiguration config = this.plugin.getConfig();
-
-        // Gets keys of location pairs, prepared to loop
-        Set<String> locKeys = config.getKeys(false);
-
-        // Initialize map
-        locPairs = new HashMap<>();
-
-        // TODO Give some hints when values are not complete
-
-        // Stores location pairs in map
-        for (String entry : locKeys) {
-            try {
-                Location locFrom = ((Location) config.get(entry + ".from"));
-                Location locTo = ((Location) config.get(entry + ".to"));
-                int magnitude = (int) config.get(entry + ".magnitude");
-
-                locPairs.put(locFrom, new MagLocation(locTo, magnitude));
-                Bukkit.getLogger().info(locFrom.toString());
-            } catch (NullPointerException e) {
-                e.printStackTrace();
-            }
-        }
+        // Must do loadVectors() first, so data can be assigned to vectors properly
+        this.plugin.loadVectors();
+        vectors = plugin.getVectorX();
+        Bukkit.getLogger().info(vectors.size() + " 个弹射点已加载成功.");
     }
 
     @Override
     public void run() {
+        if (vectors.size() == 0) {
+            Bukkit.getLogger().log(Level.SEVERE, "没有找到坐标, 弹射任务取消.");
+            player.sendMessage(ChatColor.RED + "没有找到坐标, 弹射任务取消.");
+            this.cancel();
+            return;
+        }
+
         for (final Player p : Bukkit.getOnlinePlayers()) {
             /* `FROM` Location*/
             Location locP = p.getLocation().toCenterLocation();
             locP.setPitch(0);
             locP.setYaw(0);
 
-            if (locPairs.keySet().contains(locP)) {
-                /* `TO` Location */
-                Location locTo = locPairs.get(locP).getLoc();
-                int magnitude = locPairs.get(locP).getMagnitude();
+            for (ConvenienceVector v : vectors.values()) {
+                if (v.isSame(locP)) {
+                    Location locTo = v.getLocTo();
+                    int magnitude = v.getMagnitude();
 
-                /* Calculates the vector */
-                Vector vector = locTo.toVector()
-                        .subtract(locP.toVector())
-                        .normalize()
-                        .multiply(magnitude);
+                    /* Calculates the vector */
+                    Vector vector = locTo.toVector()
+                            .subtract(locP.toVector())
+                            .normalize()
+                            .multiply(magnitude);
 
-                /* Jumping! */
-                p.setVelocity(vector);
+                    /* Jumping! */
+                    p.setVelocity(vector);
 
-                /* Avoid player dying from falling damage */
-                new BukkitRunnable() {
-                    int count = 0;
+                    /* Avoid player dying from falling damage */
+                    new BukkitRunnable() {
+                        int count = 0;
 
-                    @Override
-                    public void run() {
-                        p.setFallDistance(-100000);
-                        count++;
-                        if (count > 50) this.cancel();
-                    }
-                }.runTaskTimer(plugin, 0, 2);
+                        @Override
+                        public void run() {
+                            p.setFallDistance(-100000);
+                            if (count > 10 && p.isOnGround()) {
+                                this.cancel();
+                                return;
+                            }
+                            count++;
+                            if (count > 50) this.cancel();
+                        }
+                    }.runTaskTimer(plugin, 0, 2);
 
-                p.sendMessage("Foo! (with magnitude: " + magnitude + ")");
+                    p.sendMessage("飞翔的感觉真好! (起飞速度: " + magnitude + ")");
+                }
             }
         }
     }

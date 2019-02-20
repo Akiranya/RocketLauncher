@@ -4,19 +4,26 @@ import org.bukkit.Location;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
 
-public class VectorManager {
+class VectorManager {
 
-    private FileConfiguration config;
+    enum ACTION {
+        FROM,
+        TO
+    }
 
-    public VectorManager(FileConfiguration config) {
-        this.config = config;
+    private final RocketLauncher plugin;
+    private final FileConfiguration config;
+
+    VectorManager(RocketLauncher plugin) {
+        this.plugin = plugin;
+        this.config = plugin.getConfig();
     }
 
     void setVector(String name, Player player, ACTION action) {
         switch (action) {
             case FROM:
                 if (config.getKeys(false).contains(name + ".from")) {
-                    player.sendMessage("Jump point `" + name + "` already exists!");
+                    player.sendMessage("弹射点 " + name + " 早已存在!");
                     return;
                 }
 
@@ -25,11 +32,12 @@ public class VectorManager {
                 locFrom.setPitch(0);
 
                 config.set(name + ".from", locFrom);
-                player.sendMessage("`From` jump point `" + name + "` set.");
+                plugin.saveConfig();
+                player.sendMessage("起跳点 " + name + " 已设置.");
                 break;
             case TO:
                 if (config.getKeys(false).contains(name + ".to")) {
-                    player.sendMessage("Jump point `" + name + "` already exists!");
+                    player.sendMessage("弹射点 " + name + " 早已存在!");
                     return;
                 }
 
@@ -44,23 +52,42 @@ public class VectorManager {
                 int magnitude = player.getInventory().getHeldItemSlot();
                 config.set(name + ".magnitude", magnitude);
 
-                player.sendMessage("`To` jump point `" + name + "` set with magnitude " + magnitude + ".");
+                player.sendMessage("终点 " + name + " 已设置, 起跳速度: " + magnitude + ".");
+                plugin.saveConfig();
                 break;
         }
     }
 
     void removeVector(String name, Player player) {
         if (config.getKeys(false).contains(name)) {
+//            config.set(name + ".from", null);
+//            config.set(name + ".to", null);
+//            config.set(name + ".magnitude", null);
             config.set(name, null);
-            player.sendMessage("Jump point `" + name + "` removed.");
+            plugin.saveConfig();
+            player.sendMessage("弹射点 " + name + " 已移除.");
         } else {
-            player.sendMessage("Jump point `" + name + "` does not exist!");
+            player.sendMessage("弹射点 " + name + " 不存在.");
+        }
+    }
+
+    boolean teleportTo(String name, Player player) {
+        if (config.getKeys(false).contains(name)) {
+            Location locFrom = (Location) config.get(name + ".from");
+
+            // .clone() is necessary here, because I don't want the location itself to be added by 2
+            player.teleport(locFrom.clone().add(0, 2, 0));
+            player.sendMessage("传送到弹射点 " + name + ".");
+            return true;
+        } else {
+            player.sendMessage("弹射点 " + name + " 不存在.");
+            return false;
         }
     }
 
     void listVector(Player player) {
         if (config.getKeys(false).isEmpty()) {
-            player.sendMessage("There is no jump points set yet.");
+            player.sendMessage("还没有设置好的弹射点.");
             return;
         }
         for (String s : config.getKeys(false)) {
